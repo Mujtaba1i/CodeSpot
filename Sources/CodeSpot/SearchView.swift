@@ -6,22 +6,35 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
     var onResize: (CGFloat) -> Void = { _ in }
     let field = NSTextField()
     private let table = NSTableView()
+    private let divider = NSBox()
+    private let scroll = NSScrollView()
     private let empty = NSTextField(labelWithString: "No matching HTTP status")
-    private let modeBadge = NSTextField(labelWithString: "  Open in MDN  ⌘↩  ")
-    private var results = httpCodes
+    private let modeBadge = NSTextField(labelWithString: "")
+    private var results: [Entry] = []
 
     static let headerHeight: CGFloat = 58, rowHeight: CGFloat = 50, maxRows = 8
 
-    /// Grows and shrinks with the result count, up to maxRows.
-    var preferredHeight: CGFloat {
-        Self.headerHeight + (results.isEmpty ? 56 : CGFloat(min(results.count, Self.maxRows)) * Self.rowHeight + 12)
+    /// Modifier that turns ↩ into "open MDN" (Settings › Open MDN with). Defaults to ⌘.
+    static var mdnModifier: NSEvent.ModifierFlags {
+        NSEvent.ModifierFlags(rawValue: UInt(UserDefaults.standard.integer(forKey: "mdnModifier")))
     }
 
-    /// While ⌘ is held, ↩ opens MDN instead of copying.
-    var commandHeld = false {
+    static func symbol(_ m: NSEvent.ModifierFlags) -> String {
+        [(NSEvent.ModifierFlags.command, "⌘"), (.option, "⌥"), (.control, "⌃"), (.shift, "⇧")].first { m.contains($0.0) }?.1 ?? "⌘"
+    }
+
+    /// Just the search bar while the field is empty; grows with the results, up to maxRows.
+    var preferredHeight: CGFloat {
+        if field.stringValue.isEmpty { return Self.headerHeight }
+        return Self.headerHeight + (results.isEmpty ? 56 : CGFloat(min(results.count, Self.maxRows)) * Self.rowHeight + 12)
+    }
+
+    /// While the MDN modifier is held, ↩ opens MDN instead of copying.
+    var mdnHeld = false {
         didSet {
-            guard commandHeld != oldValue else { return }
-            modeBadge.isHidden = !commandHeld
+            guard mdnHeld != oldValue else { return }
+            modeBadge.stringValue = "  MDN mode  \(Self.symbol(Self.mdnModifier))↩  "
+            modeBadge.isHidden = !mdnHeld
             updateHints()
         }
     }
@@ -40,7 +53,7 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         icon.symbolConfiguration = .init(pointSize: 22, weight: .regular)
         icon.contentTintColor = .secondaryLabelColor
 
-        field.placeholderString = "HTTP status code or name"
+        field.placeholderString = "HTTP code or name — space lists all"
         field.font = .systemFont(ofSize: 26, weight: .light)
         field.isBordered = false
         field.drawsBackground = false
@@ -48,7 +61,6 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         field.cell?.isScrollable = true
         field.delegate = self
 
-        let divider = NSBox()
         divider.boxType = .separator
 
         table.addTableColumn(NSTableColumn(identifier: .init("row")))
@@ -62,7 +74,6 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         table.target = self
         table.action = #selector(activateSelected)
         table.refusesFirstResponder = true
-        let scroll = NSScrollView()
         scroll.documentView = table
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -98,7 +109,7 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
             scroll.topAnchor.constraint(equalTo: divider.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
+            { let c = scroll.bottomAnchor.constraint(equalTo: bottomAnchor); c.priority = .defaultHigh; return c }(),
             empty.centerXAnchor.constraint(equalTo: scroll.centerXAnchor),
             empty.centerYAnchor.constraint(equalTo: scroll.centerYAnchor, constant: -4),
         ])
@@ -115,7 +126,10 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
     private func reload() {
         results = search(field.stringValue)
         table.reloadData()
-        empty.isHidden = !results.isEmpty
+        let barOnly = field.stringValue.isEmpty
+        divider.isHidden = barOnly
+        scroll.isHidden = barOnly
+        empty.isHidden = barOnly || !results.isEmpty
         if !results.isEmpty { select(0) }
         onResize(preferredHeight)
     }
@@ -126,13 +140,15 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         table.scrollRowToVisible(row)
     }
 
-    /// ↩ / click: copy "404 Not Found". ⌘↩ / ⌘-click: open the MDN page in the default browser.
+    /// ↩ / click: copy "404 Not Found". Modifier+↩ / modifier-click: open the MDN page in the default browser
+    /// (does nothing for codes MDN doesn't cover).
     @objc func activateSelected() {
         let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
         guard results.indices.contains(row) else { return }
         let e = results[row]
-        if NSEvent.modifierFlags.contains(.command) {
-            NSWorkspace.shared.open(e.mdnURL)
+        if NSEvent.modifierFlags.contains(Self.mdnModifier) {
+            guard let url = e.mdnURL else { return }
+            NSWorkspace.shared.open(url)
         } else {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString("\(e.code) \(e.name)", forType: .string)
@@ -140,10 +156,15 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         onClose()
     }
 
+    private func hint(_ row: Int) -> String? {
+        guard row == table.selectedRow else { return nil }
+        if !mdnHeld { return "Copy ↩" }
+        return results[row].mdnURL == nil ? "No MDN page for this code" : "Open MDN ↗"
+    }
+
     private func updateHints() {
         table.enumerateAvailableRowViews { rowView, row in
-            (rowView.view(atColumn: 0) as? RowView)?.setHint(row == table.selectedRow ? (commandHeld ? "MDN ↗" : "Copy ↩") : nil,
-                                                             accent: commandHeld)
+            (rowView.view(atColumn: 0) as? RowView)?.setHint(hint(row), accent: mdnHeld && results[row].mdnURL != nil)
         }
     }
 
@@ -155,7 +176,8 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         switch sel {
         case #selector(moveUp(_:)): select(table.selectedRow - 1)
         case #selector(moveDown(_:)): select(table.selectedRow + 1)
-        case #selector(insertNewline(_:)): activateSelected()
+        case #selector(insertNewline(_:)), #selector(insertNewlineIgnoringFieldEditor(_:)), #selector(insertLineBreak(_:)):
+            activateSelected() // plain ↩, ⌥↩, ⌃↩
         case #selector(cancelOperation(_:)): onClose()
         default: return false
         }
@@ -169,7 +191,7 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let cell = tableView.makeView(withIdentifier: RowView.id, owner: nil) as? RowView ?? RowView()
         cell.show(results[row])
-        cell.setHint(row == tableView.selectedRow ? (commandHeld ? "MDN ↗" : "Copy ↩") : nil, accent: commandHeld)
+        cell.setHint(hint(row), accent: mdnHeld && results[row].mdnURL != nil)
         return cell
     }
 

@@ -3,13 +3,13 @@
 Spotlight-style HTTP status code lookup for macOS. Native, offline, about 20 MB of memory, no dependencies.
 
 Press **⌃⌥Space**, type a code (`404`) or words (`not found`, `server error`). Results update as you type
-and the panel shrinks to fit them. Leave the field empty to list every code.
+the panel grows downward from the centered search bar. Type a space to list every code.
 
 | Key | Action |
 | --- | --- |
 | ↑ / ↓ | Select |
 | ↩ | Copy "404 Not Found" |
-| ⌘↩ (hold ⌘ to see MDN mode) | Open the code's MDN page in your browser |
+| ⌘↩ (hold ⌘ to see MDN mode; modifier configurable) | Open the code's MDN page in your browser (if MDN has one) |
 | ⌘, | Settings |
 | Esc | Close |
 
@@ -24,6 +24,7 @@ The app is ad-hoc signed, not notarized, so the first launch needs right-click �
 Menu bar icon › **Settings…** (or ⌘, in the panel):
 
 - **Shortcut** – click, then press the new combo (must include ⌘, ⌃ or ⌥).
+- **Open MDN with** – ⌘, ⌥, ⌃ or ⇧ + ↩.
 - **Launch at login**
 - **Show icon in menu bar** – when hidden, ⌘, in the panel still opens Settings.
 
@@ -41,7 +42,7 @@ artifact. Pushing a `v*` tag (e.g. `git tag v1.0 && git push --tags`) also publi
 ## Tests
 
     .build/release/CodeSpot --selftest                         # search logic checks
-    .build/release/CodeSpot --snapshot "404" out.png [--cmd]   # render the results view to a PNG
+    .build/release/CodeSpot --snapshot "404" out.png [--mdn]   # render the results view to a PNG
 
 ## Data
 

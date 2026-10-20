@@ -4,6 +4,7 @@ import AppKit
 final class Panel: NSPanel {
     private let searchView = SearchView()
     private var flagsMonitor: Any?
+    private var generation = 0 // lets a newer show() cancel a pending fade-out
     var onSettings: () -> Void = {}
 
     init() {
@@ -18,26 +19,61 @@ final class Panel: NSPanel {
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         contentView = searchView
-        searchView.onClose = { [weak self] in self?.orderOut(nil) }
+        searchView.onClose = { [weak self] in self?.dismiss() }
         searchView.onResize = { [weak self] h in self?.fit(height: h) }
     }
 
     override var canBecomeKey: Bool { true }
 
-    func toggle() { isVisible ? orderOut(nil) : show() }
+    func toggle() { isVisible && alphaValue > 0 ? dismiss() : show() }
 
+    /// Search bar centered on the focused screen; results grow downward from it. Pops in like Spotlight.
     func show() {
+        generation += 1
         searchView.reset()
         let f = Self.focusedScreen().visibleFrame
-        setFrame(NSRect(x: f.midX - frame.width / 2, y: f.maxY - f.height * 0.2 - searchView.preferredHeight,
-                        width: frame.width, height: searchView.preferredHeight), display: true)
+        let h = searchView.preferredHeight
+        setFrame(NSRect(x: f.midX - frame.width / 2, y: f.midY - h / 2, width: frame.width, height: h), display: true)
+        alphaValue = 0
         makeKeyAndOrderFront(nil)
         makeFirstResponder(searchView.field)
-        searchView.commandHeld = NSEvent.modifierFlags.contains(.command)
+        searchView.mdnHeld = NSEvent.modifierFlags.contains(SearchView.mdnModifier)
         flagsMonitor = flagsMonitor ?? NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] e in
-            self?.searchView.commandHeld = e.modifierFlags.contains(.command)
+            self?.searchView.mdnHeld = e.modifierFlags.contains(SearchView.mdnModifier)
             return e
         }
+
+        if let layer = searchView.layer {
+            let b = layer.bounds
+            var t = CATransform3DMakeTranslation(b.midX, b.midY, 0)
+            t = CATransform3DScale(t, 0.92, 0.92, 1)
+            t = CATransform3DTranslate(t, -b.midX, -b.midY, 0)
+            let pop = CABasicAnimation(keyPath: "transform")
+            pop.fromValue = t
+            pop.toValue = CATransform3DIdentity
+            pop.duration = 0.2
+            pop.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.3, 1.05) // slight overshoot
+            layer.add(pop, forKey: "pop")
+        }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.15
+            animator().alphaValue = 1
+        }
+    }
+
+    /// Quick fade, then hide.
+    func dismiss() {
+        guard isVisible else { return }
+        generation += 1
+        let g = generation
+        searchView.mdnHeld = false
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.1
+            animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            guard let self, self.generation == g else { return }
+            self.orderOut(nil)
+        })
     }
 
     /// Keeps the top edge (search field) still and animates the bottom edge.
@@ -66,7 +102,7 @@ final class Panel: NSPanel {
         return NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main!
     }
 
-    /// ⌘↩ opens MDN, ⌘, opens Settings.
+    /// ⌘↩ (when ⌘ is the MDN modifier) opens MDN, ⌘, opens Settings.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.contains(.command) else { return super.performKeyEquivalent(with: event) }
         switch event.charactersIgnoringModifiers {
@@ -76,10 +112,5 @@ final class Panel: NSPanel {
         }
     }
 
-    override func orderOut(_ sender: Any?) {
-        super.orderOut(sender)
-        searchView.commandHeld = false
-    }
-
-    override func resignKey() { super.resignKey(); orderOut(nil) }
+    override func resignKey() { super.resignKey(); dismiss() }
 }

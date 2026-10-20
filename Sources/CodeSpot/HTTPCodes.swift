@@ -8,8 +8,14 @@ struct Entry: Identifiable, Equatable {
     let name: String
     let description: String
     var id: Int { code }
-    var mdnURL: URL { URL(string: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/\(code)")! }
+    var mdnURL: URL? {
+        noMDNPage.contains(code) ? nil : URL(string: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/\(code)")
+    }
 }
+
+/// Codes MDN has no page for (checked against developer.mozilla.org on 2026-10-20).
+let noMDNPage: Set<Int> = [305, 306, 419, 420, 440, 444, 450, 460, 463, 464, 498, 499, 509,
+                           520, 521, 522, 523, 524, 525, 526, 527, 530, 540, 598, 599, 783]
 
 let httpCodes: [Entry] = [
     Entry(code: 100, name: "Continue", description: "Server received headers, client should send request body"),
@@ -101,8 +107,10 @@ let httpCodes: [Entry] = [
 ]
 
 /// Case-insensitive substring match on code, name or description (same rule as the Albert plugin).
-/// Codes starting with the query come first ("5" -> 5xx before 205). An empty query returns every code.
+/// Codes starting with the query come first ("5" -> 5xx before 205).
+/// An empty query returns nothing; whitespace only (e.g. a space) returns every code.
 func search(_ query: String) -> [Entry] {
+    if query.isEmpty { return [] }
     let q = query.trimmingCharacters(in: .whitespaces).lowercased()
     if q.isEmpty { return httpCodes }
     let hits = httpCodes.filter {
@@ -116,12 +124,13 @@ func runSelfTest() {
     precondition(search("404").first?.code == 404, "404 should match 404 first")
     precondition(search("not found").contains { $0.code == 404 }, "'not found' should include 404")
     precondition(search("Internal Server").contains { $0.code == 500 }, "'internal server' should include 500")
-    precondition(search("").count == httpCodes.count, "empty query should return all codes")
-    precondition(search("  ").count == httpCodes.count, "blank query should return all codes")
+    precondition(search("").isEmpty, "empty query should return nothing")
+    precondition(search(" ").count == httpCodes.count, "a space should return all codes")
     precondition(search("5").first?.code == 500, "'5' should list 5xx first")
     precondition(search("5").contains { $0.code == 205 }, "'5' should still include 205")
     precondition(search("zzz").isEmpty, "'zzz' should match nothing")
     precondition(httpCodes.map(\.code) == httpCodes.map(\.code).sorted(), "codes should be sorted")
-    precondition(search("404")[0].mdnURL.absoluteString.hasSuffix("/Status/404"), "MDN URL should end in the code")
+    precondition(search("404")[0].mdnURL?.absoluteString.hasSuffix("/Status/404") == true, "MDN URL should end in the code")
+    precondition(search("420")[0].mdnURL == nil, "420 has no MDN page")
     print("selftest: all \(httpCodes.count) codes OK")
 }
