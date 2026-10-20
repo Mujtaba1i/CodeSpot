@@ -3,7 +3,7 @@
 Spotlight-style HTTP status code lookup for macOS. Native, offline, about 20 MB of memory, no dependencies.
 
 Press **⌃⌥Space**, type a code (`404`) or words (`not found`, `server error`). Results update as you type
-the panel grows downward from the centered search bar. Type a space to list every code.
+and the panel grows downward from the centered search bar. Type a space to list every code.
 
 | Key | Action |
 | --- | --- |
