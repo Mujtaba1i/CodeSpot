@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  dmg:
+    runs-on: macos-15
+    permissions:
+      contents: write # create the release on tags
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal app
+        run: UNIVERSAL=1 ./build.sh
+
+      - name: Self-test
+        run: CodeSpot.app/Contents/MacOS/CodeSpot --selftest
+
+      - name: Make DMG
+        run: ./make-dmg.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CodeSpot-dmg
+          path: CodeSpot.dmg
+
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" CodeSpot.dmg --title "CodeSpot $GITHUB_REF_NAME" --generate-notes
