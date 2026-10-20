@@ -11,6 +11,8 @@ UserDefaults.standard.register(defaults: ["mdnModifier": Int(NSEvent.ModifierFla
 if let i = CommandLine.arguments.firstIndex(of: "--snapshot"), CommandLine.arguments.count > i + 2 {
     let view = SearchView()
     view.appearance = NSAppearance(named: .darkAqua)
+    view.wantsLayer = true
+    view.layer?.backgroundColor = NSColor(white: 0.16, alpha: 1).cgColor // the panel's glass isn't in the snapshot
     view.reset(query: CommandLine.arguments[i + 1])
     view.setFrameSize(NSSize(width: view.frame.width, height: view.preferredHeight))
     view.mdnHeld = CommandLine.arguments.contains("--mdn")

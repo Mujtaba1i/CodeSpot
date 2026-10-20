@@ -9,7 +9,7 @@ on:
 
 jobs:
   dmg:
-    runs-on: macos-15
+    runs-on: macos-26 # Xcode 26 SDK, needed for Liquid Glass (older SDKs build with the plain blur)
     permissions:
       contents: write # create the release on tags
     steps:

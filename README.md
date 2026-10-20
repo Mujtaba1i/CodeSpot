@@ -2,7 +2,7 @@
 
 Spotlight-style HTTP status code lookup for macOS. Native, offline, about 20 MB of memory, no dependencies.
 
-Press **⌃⌥Space**, type a code (`404`) or words (`not found`, `server error`). Results update as you type
+Press **⌃⌥Space** and a Liquid Glass search bar pops up where Spotlight does. Type a code (`404`) or words (`not found`, `server error`). Results update as you type
 and the panel grows downward from the centered search bar. Type a space to list every code.
 
 | Key | Action |
@@ -47,3 +47,38 @@ artifact. Pushing a `v*` tag (e.g. `git tag v1.0 && git push --tags`) also publi
 ## Data
 
 Codes and descriptions come from [albert-httpstatus](https://github.com/Mujtaba1i/albert-httpstatus) and live in `Sources/CodeSpot/HTTPCodes.swift`.
+
+## Moving the project to another Mac
+
+The whole git history lives in the hidden `.git` folder inside `CodeSpot`, so zipping the folder takes every commit with it.
+
+1. **Zip it on this Mac** (skip the build output, it gets rebuilt):
+
+       cd ~/Desktop/claude-test
+       zip -r CodeSpot.zip CodeSpot -x "CodeSpot/.build/*" "CodeSpot/CodeSpot.app/*" "CodeSpot/CodeSpot.dmg"
+
+   Finder › Compress also works and keeps `.git`, but includes `.build/` too (bigger zip).
+
+2. **Unzip it on the other Mac**, then check the history came along:
+
+       cd CodeSpot
+       git log --oneline        # same commits, same hashes
+
+3. **Commit as your personal account from now on.** This sets the author only for this repo and leaves every
+   existing commit exactly as it is:
+
+       git config user.name  "Your Name"
+       git config user.email "you@personal.com"
+       git config user.email    # check it prints the personal email
+
+   Old commits keep showing the adg author. That's expected: changing them would rewrite every commit hash.
+
+4. **Build it there.** Install the Command Line Tools once (`xcode-select --install`), then `./build.sh`.
+
+5. **Optional: push to GitHub** so the Action builds the DMG. Create an empty private repo, then:
+
+       git remote add origin git@github.com:<you>/CodeSpot.git
+       git push -u origin main
+
+   The existing commits' adg email is visible to anyone who can see the repo's history.
+

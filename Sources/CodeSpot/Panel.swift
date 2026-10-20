@@ -3,11 +3,13 @@ import AppKit
 /// Borderless floating panel, Spotlight style. Takes keyboard focus without activating the app.
 final class Panel: NSPanel {
     private let searchView = SearchView()
+    private let background: NSView
     private var flagsMonitor: Any?
     private var generation = 0 // lets a newer show() cancel a pending fade-out
     var onSettings: () -> Void = {}
 
     init() {
+        background = Self.glass(around: searchView)
         super.init(contentRect: searchView.frame,
                    styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
                    backing: .buffered, defer: false)
@@ -18,7 +20,7 @@ final class Panel: NSPanel {
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        contentView = searchView
+        contentView = background
         searchView.onClose = { [weak self] in self?.dismiss() }
         searchView.onResize = { [weak self] h in self?.fit(height: h) }
     }
@@ -27,13 +29,46 @@ final class Panel: NSPanel {
 
     func toggle() { isVisible && alphaValue > 0 ? dismiss() : show() }
 
-    /// Search bar centered on the focused screen; results grow downward from it. Pops in like Spotlight.
+    /// Liquid Glass like Spotlight on macOS 26+, the older blur before that.
+    private static func glass(around content: NSView) -> NSView {
+        content.autoresizingMask = [.width, .height]
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) {
+            let g = NSGlassEffectView(frame: content.frame)
+            g.contentView = content
+            g.wantsLayer = true // for the pop-in transform
+            return g
+        }
+        #endif
+        let v = NSVisualEffectView(frame: content.frame)
+        v.material = .popover
+        v.blendingMode = .behindWindow
+        v.state = .active
+        v.wantsLayer = true
+        v.layer?.cornerCurve = .continuous
+        v.layer?.masksToBounds = true
+        v.addSubview(content)
+        return v
+    }
+
+    /// Pill while it's only the search bar, rounded panel once results show.
+    private func setCornerRadius(for height: CGFloat) {
+        let r = height <= SearchView.headerHeight ? SearchView.headerHeight / 2 : 24
+        #if compiler(>=6.2)
+        if #available(macOS 26, *), let g = background as? NSGlassEffectView { g.cornerRadius = r; return }
+        #endif
+        background.layer?.cornerRadius = r
+    }
+
+    /// Search bar a third of the way down the focused screen, where Spotlight sits; results grow downward. Pops in.
     func show() {
         generation += 1
         searchView.reset()
-        let f = Self.focusedScreen().visibleFrame
+        let f = Self.focusedScreen().frame
         let h = searchView.preferredHeight
-        setFrame(NSRect(x: f.midX - frame.width / 2, y: f.midY - h / 2, width: frame.width, height: h), display: true)
+        let barTop = f.maxY - f.height * 0.29
+        setFrame(NSRect(x: f.midX - frame.width / 2, y: barTop - h, width: frame.width, height: h), display: true)
+        setCornerRadius(for: h)
         alphaValue = 0
         makeKeyAndOrderFront(nil)
         makeFirstResponder(searchView.field)
@@ -43,7 +78,7 @@ final class Panel: NSPanel {
             return e
         }
 
-        if let layer = searchView.layer {
+        if let layer = background.layer {
             let b = layer.bounds
             var t = CATransform3DMakeTranslation(b.midX, b.midY, 0)
             t = CATransform3DScale(t, 0.92, 0.92, 1)
@@ -79,12 +114,15 @@ final class Panel: NSPanel {
     /// Keeps the top edge (search field) still and animates the bottom edge.
     private func fit(height: CGFloat) {
         guard height != frame.height else { return }
+        setCornerRadius(for: height)
         let target = NSRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height)
         guard isVisible else { return setFrame(target, display: false) }
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.15
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             animator().setFrame(target, display: true)
+        } completionHandler: { [weak self] in
+            self?.invalidateShadow()
         }
     }
 

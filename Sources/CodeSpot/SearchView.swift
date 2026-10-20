@@ -1,7 +1,8 @@
 import AppKit
 
 /// Search field on top, live-filtered results below. Plain AppKit (SwiftUI macros need full Xcode).
-final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewDataSource, NSTableViewDelegate {
+/// Transparent: the panel puts it on glass.
+final class SearchView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTableViewDelegate {
     var onClose: () -> Void = {}
     var onResize: (CGFloat) -> Void = { _ in }
     let field = NSTextField()
@@ -41,13 +42,6 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
 
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: 680, height: 460))
-        material = .popover
-        blendingMode = .behindWindow
-        state = .active
-        wantsLayer = true
-        layer?.cornerRadius = 16
-        layer?.cornerCurve = .continuous
-        layer?.masksToBounds = true
 
         let icon = NSImageView(image: NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)!)
         icon.symbolConfiguration = .init(pointSize: 22, weight: .regular)
