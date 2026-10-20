@@ -100,13 +100,15 @@ let httpCodes: [Entry] = [
 ]
 
 /// Case-insensitive substring match on code, name or description (same rule as the Albert plugin).
-/// An empty query returns every code.
+/// Codes starting with the query come first ("5" -> 5xx before 205). An empty query returns every code.
 func search(_ query: String) -> [Entry] {
     let q = query.trimmingCharacters(in: .whitespaces).lowercased()
     if q.isEmpty { return httpCodes }
-    return httpCodes.filter {
+    let hits = httpCodes.filter {
         String($0.code).contains(q) || $0.name.lowercased().contains(q) || $0.description.lowercased().contains(q)
     }
+    let prefixed = hits.filter { String($0.code).hasPrefix(q) }
+    return prefixed + hits.filter { !String($0.code).hasPrefix(q) }
 }
 
 func runSelfTest() {
@@ -115,6 +117,8 @@ func runSelfTest() {
     precondition(search("Internal Server").contains { $0.code == 500 }, "'internal server' should include 500")
     precondition(search("").count == httpCodes.count, "empty query should return all codes")
     precondition(search("  ").count == httpCodes.count, "blank query should return all codes")
+    precondition(search("5").first?.code == 500, "'5' should list 5xx first")
+    precondition(search("5").contains { $0.code == 205 }, "'5' should still include 205")
     precondition(search("zzz").isEmpty, "'zzz' should match nothing")
     precondition(httpCodes.map(\.code) == httpCodes.map(\.code).sorted(), "codes should be sorted")
     print("selftest: all \(httpCodes.count) codes OK")
