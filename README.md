@@ -10,7 +10,6 @@ Press a shortcut, type `404` or `not found`, and get the code, its name and a on
 Native, **fully offline**, about **20 MB** of memory, no dependencies.
 
 [![Latest release](https://img.shields.io/github/v/release/Mujtaba1i/CodeSpot?label=release)](https://github.com/Mujtaba1i/CodeSpot/releases/latest)
-[![Build](https://img.shields.io/github/actions/workflow/status/Mujtaba1i/CodeSpot/build.yml?branch=main&label=build)](https://github.com/Mujtaba1i/CodeSpot/actions/workflows/build.yml)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](#installation)
 [![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-informational)](#installation)
 [![Swift](https://img.shields.io/badge/Swift-AppKit-F05138?logo=swift&logoColor=white)](#building-from-source)
@@ -34,8 +33,8 @@ Native, **fully offline**, about **20 MB** of memory, no dependencies.
 
 <div align="center">
 
-| MDN mode | Code without an MDN page |
-|:---:|:---:|
+|                              MDN mode                              |                               Code without an MDN page                               |
+| :----------------------------------------------------------------: | :----------------------------------------------------------------------------------: |
 | ![Holding ⌘ on 404 shows "Open MDN"](docs/screenshots/mdn-404.png) | ![Holding ⌘ on 420 shows "No MDN page for this code"](docs/screenshots/mdn-mode.png) |
 
 </div>
@@ -52,17 +51,17 @@ Requires macOS 14 Sonoma or newer. It runs natively on Apple silicon and Intel. 
 
 ## Usage
 
-| Action | How |
-|---|---|
-| Open or close CodeSpot | `⌃⌥Space` (configurable) |
-| Search | Type a code or words |
-| List every code | Type a space |
-| Move the selection | `↑` / `↓` |
-| Copy `404 Not Found` | `↩` or click |
-| Open the MDN page | Hold `⌘` (configurable) and press `↩` or click |
-| Close | `Esc`, click elsewhere, or open Spotlight |
-| Settings | `⌘ + ,` in the panel, or menu bar icon › **Settings…** |
-| Move the panel | Drag it by its edge. Menu bar › **Reset Panel Position** puts it back |
+| Action                 | How                                                                   |
+| ---------------------- | --------------------------------------------------------------------- |
+| Open or close CodeSpot | `⌃⌥Space` (configurable)                                              |
+| Search                 | Type a code or words                                                  |
+| List every code        | Type a space                                                          |
+| Move the selection     | `↑` / `↓`                                                             |
+| Copy `404 Not Found`   | `↩` or click                                                          |
+| Open the MDN page      | Hold `⌘` (configurable) and press `↩` or click                        |
+| Close                  | `Esc`, click elsewhere, or open Spotlight                             |
+| Settings               | `⌘ + ,` in the panel, or menu bar icon › **Settings…**                |
+| Move the panel         | Drag it by its edge. Menu bar › **Reset Panel Position** puts it back |
 
 ### Settings
 
@@ -77,27 +76,32 @@ Requires macOS 14 Sonoma or newer. It runs natively on Apple silicon and Intel. 
 <summary><b>"CodeSpot can't be opened" or "is damaged"</b></summary>
 
 That's Gatekeeper, because the app isn't notarized. Right-click it in Applications and choose **Open**, or run:
+
 ```bash
 xattr -dr com.apple.quarantine /Applications/CodeSpot.app
 ```
+
 </details>
 
 <details>
 <summary><b>The shortcut doesn't open anything</b></summary>
 
 Another app may already own that combination. In that case CodeSpot tells you when you set it and keeps the previous one. Pick a different shortcut in **Settings**. You can always open the panel from the menu bar icon, or by opening CodeSpot again from Finder or Spotlight.
+
 </details>
 
 <details>
 <summary><b>Launch at login doesn't stick</b></summary>
 
 Move CodeSpot to **Applications** first, then turn the setting off and on again. macOS registers the app at its current location, so a copy in Downloads or on the Desktop can stop working once it's moved.
+
 </details>
 
 <details>
 <summary><b>I hid the menu bar icon and can't find Settings</b></summary>
 
 Open the panel with your shortcut and press `⌘ + ,`.
+
 </details>
 
 ## Building from source
@@ -140,6 +144,7 @@ Sources/CodeSpot/
 Resources/             Info.plist and the app icon
 tools/make-icon.swift  renders the icon
 ```
+
 </details>
 
 <details>
@@ -160,6 +165,7 @@ git config user.email "you@example.com"
 ```
 
 Earlier commits keep their original author. Changing them would rewrite every commit hash.
+
 </details>
 
 ## Roadmap
