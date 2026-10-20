@@ -27,7 +27,7 @@ final class SearchView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     /// Just the search bar while the field is empty; grows with the results, up to maxRows.
     var preferredHeight: CGFloat {
         if field.stringValue.isEmpty { return Self.headerHeight }
-        return Self.headerHeight + (results.isEmpty ? 56 : CGFloat(min(results.count, Self.maxRows)) * Self.rowHeight + 12)
+        return Self.headerHeight + (results.isEmpty ? 56 : CGFloat(min(results.count, Self.maxRows)) * Self.rowHeight + 24) // room for the inset selection
     }
 
     /// While the MDN modifier is held, ↩ opens MDN instead of copying.
@@ -47,7 +47,7 @@ final class SearchView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         icon.symbolConfiguration = .init(pointSize: 22, weight: .regular)
         icon.contentTintColor = .secondaryLabelColor
 
-        field.placeholderString = "HTTP code or name — space lists all"
+        field.placeholderString = "HTTP status code or name"
         field.font = .systemFont(ofSize: 26, weight: .light)
         field.isBordered = false
         field.drawsBackground = false

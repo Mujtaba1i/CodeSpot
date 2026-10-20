@@ -26,7 +26,7 @@ final class SettingsWindow: NSWindow {
         mdnModifier.target = self
         mdnModifier.action = #selector(changeMDNModifier)
 
-        let note = NSTextField(wrappingLabelWithString: "When the icon is hidden, press ⌘, in the search panel to open Settings.")
+        let note = NSTextField(wrappingLabelWithString: "When the icon is hidden, press ⌘ + , in the search panel to open Settings.")
         note.font = .systemFont(ofSize: 11)
         note.textColor = .secondaryLabelColor
         note.preferredMaxLayoutWidth = 260

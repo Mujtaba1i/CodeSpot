@@ -10,7 +10,7 @@ and the panel grows downward from the centered search bar. Type a space to list 
 | ↑ / ↓ | Select |
 | ↩ | Copy "404 Not Found" |
 | ⌘↩ (hold ⌘ to see MDN mode; modifier configurable) | Open the code's MDN page in your browser (if MDN has one) |
-| ⌘, | Settings |
+| ⌘ + , | Settings |
 | Esc | Close |
 
 ## Install
@@ -21,12 +21,12 @@ The app is ad-hoc signed, not notarized, so the first launch needs right-click �
 
 ## Settings
 
-Menu bar icon › **Settings…** (or ⌘, in the panel):
+Menu bar icon › **Settings…** (or ⌘ + , in the panel):
 
 - **Shortcut** – click, then press the new combo (must include ⌘, ⌃ or ⌥).
 - **Open MDN with** – ⌘, ⌥, ⌃ or ⇧ + ↩.
 - **Launch at login**
-- **Show icon in menu bar** – when hidden, ⌘, in the panel still opens Settings.
+- **Show icon in menu bar** – when hidden, ⌘ + , in the panel still opens Settings.
 
 ## Build
 

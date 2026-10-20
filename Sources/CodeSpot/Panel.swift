@@ -6,6 +6,9 @@ final class Panel: NSPanel {
     private let background: NSView
     private var flagsMonitor: Any?
     private var generation = 0 // lets a newer show() cancel a pending fade-out
+    private var restingFrame = NSRect.zero // where the panel settles; the open bounce wobbles around it
+    private var bounce: Timer?
+    private static let width: CGFloat = 680
     var onSettings: () -> Void = {}
 
     init() {
@@ -36,7 +39,6 @@ final class Panel: NSPanel {
         if #available(macOS 26, *) {
             let g = NSGlassEffectView(frame: content.frame)
             g.contentView = content
-            g.wantsLayer = true // for the pop-in transform
             return g
         }
         #endif
@@ -67,7 +69,7 @@ final class Panel: NSPanel {
         let f = Self.focusedScreen().frame
         let h = searchView.preferredHeight
         let barTop = f.maxY - f.height * 0.29
-        setFrame(NSRect(x: f.midX - frame.width / 2, y: barTop - h, width: frame.width, height: h), display: true)
+        restingFrame = NSRect(x: f.midX - Self.width / 2, y: barTop - h, width: Self.width, height: h)
         setCornerRadius(for: h)
         alphaValue = 0
         makeKeyAndOrderFront(nil)
@@ -78,22 +80,29 @@ final class Panel: NSPanel {
             return e
         }
 
-        if let layer = background.layer {
-            let b = layer.bounds
-            var t = CATransform3DMakeTranslation(b.midX, b.midY, 0)
-            t = CATransform3DScale(t, 0.92, 0.92, 1)
-            t = CATransform3DTranslate(t, -b.midX, -b.midY, 0)
-            let pop = CABasicAnimation(keyPath: "transform")
-            pop.fromValue = t
-            pop.toValue = CATransform3DIdentity
-            pop.duration = 0.2
-            pop.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.3, 1.05) // slight overshoot
-            layer.add(pop, forKey: "pop")
-        }
+        startBounce()
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
+            ctx.duration = 0.1
             animator().alphaValue = 1
         }
+    }
+
+    /// Spotlight-style open: starts stretched (mostly wider), springs back to size with a small bounce.
+    private func startBounce() {
+        bounce?.invalidate()
+        let start = CACurrentMediaTime()
+        func step() {
+            let t = CACurrentMediaTime() - start
+            // Damped oscillation: +12% wide at t=0, ~3% too narrow at 0.17 s, settled by 0.5 s.
+            let k = t >= 0.5 ? 0 : exp(-t / 0.12) * cos(2 * .pi * 3 * t)
+            let r = restingFrame
+            let w = r.width * (1 + 0.12 * k), h = r.height * (1 + 0.08 * k)
+            setFrame(NSRect(x: r.midX - w / 2, y: r.midY - h / 2, width: w, height: h), display: true)
+            if k == 0 { bounce?.invalidate(); bounce = nil; invalidateShadow() }
+        }
+        step()
+        bounce = Timer(timeInterval: 1.0 / 120, repeats: true) { _ in step() }
+        RunLoop.main.add(bounce!, forMode: .common)
     }
 
     /// Quick fade, then hide.
@@ -113,10 +122,11 @@ final class Panel: NSPanel {
 
     /// Keeps the top edge (search field) still and animates the bottom edge.
     private func fit(height: CGFloat) {
-        guard height != frame.height else { return }
+        guard height != restingFrame.height else { return }
         setCornerRadius(for: height)
-        let target = NSRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height)
-        guard isVisible else { return setFrame(target, display: false) }
+        restingFrame = NSRect(x: restingFrame.minX, y: restingFrame.maxY - height, width: restingFrame.width, height: height)
+        let target = restingFrame
+        guard isVisible, bounce == nil else { return } // the bounce settles on restingFrame itself
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.15
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
