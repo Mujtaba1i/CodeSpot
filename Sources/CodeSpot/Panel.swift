@@ -32,10 +32,29 @@ final class Panel: NSPanel {
 
     func toggle() { isVisible && alphaValue > 0 ? dismiss() : show() }
 
-    /// Liquid Glass like Spotlight on macOS 26+ (with a frosted blur inside so text stays readable),
-    /// the older blur alone before that.
+    /// Liquid Glass like Spotlight on macOS 26+, plus a faint frost for a little extra blur;
+    /// the older blur before that.
     private static func glass(around content: NSView) -> NSView {
         content.autoresizingMask = [.width, .height]
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) {
+            let frost = NSVisualEffectView(frame: content.frame)
+            frost.material = .hudWindow
+            frost.blendingMode = .behindWindow
+            frost.state = .active
+            frost.alphaValue = 0.35 // shortcut: tune here; higher = blurrier/darker
+            frost.autoresizingMask = [.width, .height]
+            let stack = NSView(frame: content.frame) // frost and content as siblings so the text isn't faded
+            stack.wantsLayer = true
+            stack.layer?.masksToBounds = true
+            stack.layer?.cornerCurve = .continuous
+            stack.addSubview(frost)
+            stack.addSubview(content)
+            let g = NSGlassEffectView(frame: content.frame)
+            g.contentView = stack
+            return g
+        }
+        #endif
         let v = NSVisualEffectView(frame: content.frame)
         v.material = .popover
         v.blendingMode = .behindWindow
@@ -44,15 +63,6 @@ final class Panel: NSPanel {
         v.layer?.cornerCurve = .continuous
         v.layer?.masksToBounds = true
         v.addSubview(content)
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            v.material = .hudWindow // heavier frost than .popover
-            v.autoresizingMask = [.width, .height]
-            let g = NSGlassEffectView(frame: content.frame)
-            g.contentView = v
-            return g
-        }
-        #endif
         return v
     }
 
