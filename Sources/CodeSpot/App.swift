@@ -5,25 +5,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let panel = Panel()
     private var statusItem: NSStatusItem!
     private var hotKey: HotKey!
-    private let shortcutItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let settings = SettingsWindow()
     private let defaults = UserDefaults.standard
 
     func applicationDidFinishLaunching(_ note: Notification) {
         defaults.register(defaults: [
             "keyCode": kVK_Space, "modifiers": controlKey | optionKey, "shortcutLabel": "⌃⌥Space",
+            "showMenuBarIcon": true,
         ])
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "number.square", accessibilityDescription: "CodeSpot")
+        statusItem.button?.image = NSImage(systemSymbolName: "list.bullet.below.rectangle", accessibilityDescription: "CodeSpot")
+        statusItem.isVisible = defaults.bool(forKey: "showMenuBarIcon")
         let menu = NSMenu()
         menu.addItem(withTitle: "Show CodeSpot", action: #selector(showPanel), keyEquivalent: "")
-        menu.addItem(.separator())
-        shortcutItem.isEnabled = false
-        menu.addItem(shortcutItem)
-        menu.addItem(withTitle: "Change Shortcut…", action: #selector(changeShortcut), keyEquivalent: "")
+        menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit CodeSpot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
+
+        panel.onSettings = { [weak self] in self?.showSettings() }
+        settings.onChangeShortcut = { [weak self] in self?.changeShortcut() }
+        settings.onShowMenuBarIcon = { [weak self] on in
+            self?.defaults.set(on, forKey: "showMenuBarIcon")
+            self?.statusItem.isVisible = on
+        }
 
         hotKey = HotKey { [weak self] in self?.panel.toggle() }
         registerSaved()
@@ -37,15 +43,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showPanel() { panel.show() }
 
+    @objc private func showSettings() {
+        settings.show(shortcutLabel: defaults.string(forKey: "shortcutLabel")!, menuBarShown: statusItem.isVisible)
+    }
+
     @discardableResult
     private func registerSaved() -> Bool {
-        shortcutItem.title = "Shortcut: " + defaults.string(forKey: "shortcutLabel")!
         return hotKey.register(keyCode: UInt32(defaults.integer(forKey: "keyCode")),
                                modifiers: UInt32(defaults.integer(forKey: "modifiers")))
     }
 
     /// Records the next key combo (needs ⌘, ⌃ or ⌥) and makes it the global shortcut. Esc cancels.
-    @objc private func changeShortcut() {
+    private func changeShortcut() {
         hotKey.unregister() // so the current combo can be recorded again
         let alert = NSAlert()
         alert.messageText = "Press the new shortcut"
@@ -81,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             err.informativeText = "Kept \(old.2)."
             err.runModal()
         }
+        showSettings()
     }
 }
 
