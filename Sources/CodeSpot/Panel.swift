@@ -8,6 +8,8 @@ final class Panel: NSPanel {
     private var generation = 0 // lets a newer show() cancel a pending fade-out
     private var restingFrame = NSRect.zero // where the panel settles; the open bounce wobbles around it
     private var bounce: Timer?
+    private var spotlightWatch: Timer?
+    private var screenFrame = NSRect.zero // screen the panel was last shown on, for saving a dragged position
     private static let width = SearchView.width
     var onSettings: () -> Void = {}
 
@@ -79,14 +81,18 @@ final class Panel: NSPanel {
         background.layer?.cornerRadius = r
     }
 
-    /// Search bar a third of the way down the focused screen, where Spotlight sits; results grow downward. Pops in.
+    /// Search bar where Spotlight sits (29% down, centered) unless the user dragged it elsewhere;
+    /// results grow downward. Pops in.
     func show() {
         generation += 1
         searchView.reset()
         let f = Self.focusedScreen().frame
+        screenFrame = f
         let h = searchView.preferredHeight
-        let barTop = f.maxY - f.height * 0.29
-        restingFrame = NSRect(x: f.midX - Self.width / 2, y: barTop - h, width: Self.width, height: h)
+        let d = UserDefaults.standard
+        let barTop = f.maxY - f.height * (d.object(forKey: "panelTop") as? CGFloat ?? 0.29)
+        let midX = f.midX + (d.object(forKey: "panelOffsetX") as? CGFloat ?? 0)
+        restingFrame = NSRect(x: midX - Self.width / 2, y: barTop - h, width: Self.width, height: h)
         setCornerRadius(for: h)
         alphaValue = 0
         makeKeyAndOrderFront(nil)
@@ -102,6 +108,34 @@ final class Panel: NSPanel {
             ctx.duration = 0.1
             animator().alphaValue = 1
         }
+        watchForSpotlight()
+    }
+
+    /// Spotlight doesn't take focus from this panel, so look for its window and step aside when it opens.
+    private func watchForSpotlight() {
+        spotlightWatch?.invalidate()
+        spotlightWatch = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+            let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+            if windows.contains(where: {
+                $0[kCGWindowOwnerName as String] as? String == "Spotlight" && ($0[kCGWindowAlpha as String] as? Double ?? 0) > 0
+            }) { self?.dismiss() }
+        }
+    }
+
+    /// Forget a dragged position and go back to Spotlight's spot.
+    func resetPosition() {
+        UserDefaults.standard.removeObject(forKey: "panelTop")
+        UserDefaults.standard.removeObject(forKey: "panelOffsetX")
+    }
+
+    /// Dragging the panel by its background remembers where it was dropped (as Spotlight does).
+    override func sendEvent(_ event: NSEvent) {
+        let before = frame.origin
+        super.sendEvent(event) // a background drag runs to completion inside this call
+        guard event.type == .leftMouseDown, frame.origin != before, bounce == nil else { return }
+        restingFrame = frame
+        UserDefaults.standard.set((screenFrame.maxY - frame.maxY) / screenFrame.height, forKey: "panelTop")
+        UserDefaults.standard.set(frame.midX - screenFrame.midX, forKey: "panelOffsetX")
     }
 
     /// Spotlight-style open: starts stretched (mostly wider), springs back to size with a small bounce.
@@ -128,6 +162,8 @@ final class Panel: NSPanel {
         generation += 1
         let g = generation
         searchView.mdnHeld = false
+        spotlightWatch?.invalidate()
+        spotlightWatch = nil
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.1
             animator().alphaValue = 0

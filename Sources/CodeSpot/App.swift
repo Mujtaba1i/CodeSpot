@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Show CodeSpot", action: #selector(showPanel), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        menu.addItem(withTitle: "Reset Panel Position", action: #selector(resetPosition), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit CodeSpot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
@@ -42,6 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showPanel() { panel.show() }
+
+    @objc private func resetPosition() { panel.resetPosition() }
 
     @objc private func showSettings() {
         settings.show(shortcutLabel: defaults.string(forKey: "shortcutLabel")!, menuBarShown: statusItem.isVisible)

@@ -11,7 +11,10 @@ and the panel grows downward from the centered search bar. Type a space to list 
 | ↩ | Copy "404 Not Found" |
 | ⌘↩ (hold ⌘ to see MDN mode; modifier configurable) | Open the code's MDN page in your browser (if MDN has one) |
 | ⌘ + , | Settings |
-| Esc | Close |
+| Esc | Close (it also closes itself when Spotlight opens) |
+
+Drag the panel by its edge to move it; it opens there from then on. Menu bar › **Reset Panel Position** puts it back
+where Spotlight opens by default (centered, 29% from the top).
 
 ## Install
 
