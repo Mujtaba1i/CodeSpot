@@ -8,7 +8,7 @@ final class Panel: NSPanel {
     private var generation = 0 // lets a newer show() cancel a pending fade-out
     private var restingFrame = NSRect.zero // where the panel settles; the open bounce wobbles around it
     private var bounce: Timer?
-    private static let width: CGFloat = 680
+    private static let width = SearchView.width
     var onSettings: () -> Void = {}
 
     init() {

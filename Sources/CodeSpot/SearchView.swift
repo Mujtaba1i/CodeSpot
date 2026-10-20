@@ -13,7 +13,7 @@ final class SearchView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     private let modeBadge = NSTextField(labelWithString: "")
     private var results: [Entry] = []
 
-    static let headerHeight: CGFloat = 58, rowHeight: CGFloat = 50, maxRows = 8
+    static let width: CGFloat = 640, headerHeight: CGFloat = 58, rowHeight: CGFloat = 50, maxRows = 8 // width matches Spotlight
 
     /// Modifier that turns ↩ into "open MDN" (Settings › Open MDN with). Defaults to ⌘.
     static var mdnModifier: NSEvent.ModifierFlags {
@@ -41,7 +41,7 @@ final class SearchView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     }
 
     init() {
-        super.init(frame: NSRect(x: 0, y: 0, width: 680, height: 460))
+        super.init(frame: NSRect(x: 0, y: 0, width: Self.width, height: 460))
 
         let icon = NSImageView(image: NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)!)
         icon.symbolConfiguration = .init(pointSize: 22, weight: .regular)
