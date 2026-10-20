@@ -17,9 +17,13 @@ final class HotKey {
     /// keyCode is a virtual key code (kVK_*), modifiers are Carbon flags (controlKey, optionKey, ...).
     @discardableResult
     func register(keyCode: UInt32, modifiers: UInt32) -> Bool {
-        if let ref { UnregisterEventHotKey(ref) }
-        ref = nil
+        unregister()
         return RegisterEventHotKey(keyCode, modifiers, EventHotKeyID(signature: 0x4353_5054, id: 1),
                                    GetApplicationEventTarget(), 0, &ref) == noErr
+    }
+
+    func unregister() {
+        if let ref { UnregisterEventHotKey(ref) }
+        ref = nil
     }
 }
