@@ -45,10 +45,13 @@ final class SearchView: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
 
         let icon = NSImageView(image: NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)!)
         icon.symbolConfiguration = .init(pointSize: 22, weight: .regular)
-        icon.contentTintColor = .secondaryLabelColor
+        // Spotlight's brighter grey for the magnifier and placeholder.
+        let hintColor = NSColor.labelColor.withAlphaComponent(0.7)
+        icon.contentTintColor = hintColor
 
-        field.placeholderString = "HTTP status code or name"
-        field.font = .systemFont(ofSize: 26, weight: .light)
+        field.font = .systemFont(ofSize: 26, weight: .regular)
+        field.placeholderAttributedString = NSAttributedString(string: "HTTP status code or name",
+                                                               attributes: [.font: field.font!, .foregroundColor: hintColor])
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none

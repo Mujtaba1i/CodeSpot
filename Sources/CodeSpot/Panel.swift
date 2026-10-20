@@ -32,16 +32,10 @@ final class Panel: NSPanel {
 
     func toggle() { isVisible && alphaValue > 0 ? dismiss() : show() }
 
-    /// Liquid Glass like Spotlight on macOS 26+, the older blur before that.
+    /// Liquid Glass like Spotlight on macOS 26+ (with a frosted blur inside so text stays readable),
+    /// the older blur alone before that.
     private static func glass(around content: NSView) -> NSView {
         content.autoresizingMask = [.width, .height]
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            let g = NSGlassEffectView(frame: content.frame)
-            g.contentView = content
-            return g
-        }
-        #endif
         let v = NSVisualEffectView(frame: content.frame)
         v.material = .popover
         v.blendingMode = .behindWindow
@@ -50,6 +44,15 @@ final class Panel: NSPanel {
         v.layer?.cornerCurve = .continuous
         v.layer?.masksToBounds = true
         v.addSubview(content)
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) {
+            v.material = .hudWindow // heavier frost than .popover
+            v.autoresizingMask = [.width, .height]
+            let g = NSGlassEffectView(frame: content.frame)
+            g.contentView = v
+            return g
+        }
+        #endif
         return v
     }
 
@@ -57,7 +60,11 @@ final class Panel: NSPanel {
     private func setCornerRadius(for height: CGFloat) {
         let r = height <= SearchView.headerHeight ? SearchView.headerHeight / 2 : 24
         #if compiler(>=6.2)
-        if #available(macOS 26, *), let g = background as? NSGlassEffectView { g.cornerRadius = r; return }
+        if #available(macOS 26, *), let g = background as? NSGlassEffectView {
+            g.cornerRadius = r
+            g.contentView?.layer?.cornerRadius = r
+            return
+        }
         #endif
         background.layer?.cornerRadius = r
     }
