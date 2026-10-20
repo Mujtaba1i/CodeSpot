@@ -78,8 +78,8 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func reset() {
-        field.stringValue = ""
+    func reset(query: String = "") {
+        field.stringValue = query
         reload()
     }
 
