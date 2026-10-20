@@ -8,6 +8,7 @@ struct Entry: Identifiable, Equatable {
     let name: String
     let description: String
     var id: Int { code }
+    var mdnURL: URL { URL(string: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/\(code)")! }
 }
 
 let httpCodes: [Entry] = [
@@ -121,5 +122,6 @@ func runSelfTest() {
     precondition(search("5").contains { $0.code == 205 }, "'5' should still include 205")
     precondition(search("zzz").isEmpty, "'zzz' should match nothing")
     precondition(httpCodes.map(\.code) == httpCodes.map(\.code).sorted(), "codes should be sorted")
+    precondition(search("404")[0].mdnURL.absoluteString.hasSuffix("/Status/404"), "MDN URL should end in the code")
     print("selftest: all \(httpCodes.count) codes OK")
 }

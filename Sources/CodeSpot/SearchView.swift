@@ -3,10 +3,28 @@ import AppKit
 /// Search field on top, live-filtered results below. Plain AppKit (SwiftUI macros need full Xcode).
 final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewDataSource, NSTableViewDelegate {
     var onClose: () -> Void = {}
+    var onResize: (CGFloat) -> Void = { _ in }
     let field = NSTextField()
     private let table = NSTableView()
     private let empty = NSTextField(labelWithString: "No matching HTTP status")
+    private let modeBadge = NSTextField(labelWithString: "  Open in MDN  ⌘↩  ")
     private var results = httpCodes
+
+    static let headerHeight: CGFloat = 58, rowHeight: CGFloat = 50, maxRows = 8
+
+    /// Grows and shrinks with the result count, up to maxRows.
+    var preferredHeight: CGFloat {
+        Self.headerHeight + (results.isEmpty ? 56 : CGFloat(min(results.count, Self.maxRows)) * Self.rowHeight + 12)
+    }
+
+    /// While ⌘ is held, ↩ opens MDN instead of copying.
+    var commandHeld = false {
+        didSet {
+            guard commandHeld != oldValue else { return }
+            modeBadge.isHidden = !commandHeld
+            updateHints()
+        }
+    }
 
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: 680, height: 460))
@@ -37,12 +55,12 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         table.headerView = nil
         table.backgroundColor = .clear
         table.style = .inset
-        table.rowHeight = 50
+        table.rowHeight = Self.rowHeight
         table.intercellSpacing = .zero
         table.dataSource = self
         table.delegate = self
         table.target = self
-        table.action = #selector(copySelected)
+        table.action = #selector(activateSelected)
         table.refusesFirstResponder = true
         let scroll = NSScrollView()
         scroll.documentView = table
@@ -53,7 +71,16 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         empty.textColor = .secondaryLabelColor
         empty.isHidden = true
 
-        for v in [icon, field, divider, scroll, empty] as [NSView] {
+        modeBadge.font = .systemFont(ofSize: 12, weight: .semibold)
+        modeBadge.textColor = .white
+        modeBadge.drawsBackground = true
+        modeBadge.backgroundColor = .controlAccentColor
+        modeBadge.wantsLayer = true
+        modeBadge.layer?.cornerRadius = 5
+        modeBadge.layer?.masksToBounds = true
+        modeBadge.isHidden = true
+
+        for v in [icon, field, modeBadge, divider, scroll, empty] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -61,9 +88,11 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
             icon.centerYAnchor.constraint(equalTo: topAnchor, constant: 29),
             field.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 12),
-            field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
+            field.trailingAnchor.constraint(equalTo: modeBadge.leadingAnchor, constant: -8),
             field.centerYAnchor.constraint(equalTo: icon.centerYAnchor),
-            divider.topAnchor.constraint(equalTo: topAnchor, constant: 58),
+            modeBadge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
+            modeBadge.centerYAnchor.constraint(equalTo: icon.centerYAnchor),
+            divider.topAnchor.constraint(equalTo: topAnchor, constant: Self.headerHeight),
             divider.leadingAnchor.constraint(equalTo: leadingAnchor),
             divider.trailingAnchor.constraint(equalTo: trailingAnchor),
             scroll.topAnchor.constraint(equalTo: divider.bottomAnchor),
@@ -71,7 +100,7 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
             empty.centerXAnchor.constraint(equalTo: scroll.centerXAnchor),
-            empty.centerYAnchor.constraint(equalTo: scroll.centerYAnchor),
+            empty.centerYAnchor.constraint(equalTo: scroll.centerYAnchor, constant: -4),
         ])
         reload()
     }
@@ -88,6 +117,7 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         table.reloadData()
         empty.isHidden = !results.isEmpty
         if !results.isEmpty { select(0) }
+        onResize(preferredHeight)
     }
 
     private func select(_ row: Int) {
@@ -96,13 +126,25 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         table.scrollRowToVisible(row)
     }
 
-    /// Enter / click: copy "404 Not Found" and close.
-    @objc private func copySelected() {
+    /// ↩ / click: copy "404 Not Found". ⌘↩ / ⌘-click: open the MDN page in the default browser.
+    @objc func activateSelected() {
         let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
         guard results.indices.contains(row) else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("\(results[row].code) \(results[row].name)", forType: .string)
+        let e = results[row]
+        if NSEvent.modifierFlags.contains(.command) {
+            NSWorkspace.shared.open(e.mdnURL)
+        } else {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString("\(e.code) \(e.name)", forType: .string)
+        }
         onClose()
+    }
+
+    private func updateHints() {
+        table.enumerateAvailableRowViews { rowView, row in
+            (rowView.view(atColumn: 0) as? RowView)?.setHint(row == table.selectedRow ? (commandHeld ? "MDN ↗" : "Copy ↩") : nil,
+                                                             accent: commandHeld)
+        }
     }
 
     // MARK: Field
@@ -113,7 +155,7 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
         switch sel {
         case #selector(moveUp(_:)): select(table.selectedRow - 1)
         case #selector(moveDown(_:)): select(table.selectedRow + 1)
-        case #selector(insertNewline(_:)): copySelected()
+        case #selector(insertNewline(_:)): activateSelected()
         case #selector(cancelOperation(_:)): onClose()
         default: return false
         }
@@ -127,8 +169,11 @@ final class SearchView: NSVisualEffectView, NSTextFieldDelegate, NSTableViewData
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let cell = tableView.makeView(withIdentifier: RowView.id, owner: nil) as? RowView ?? RowView()
         cell.show(results[row])
+        cell.setHint(row == tableView.selectedRow ? (commandHeld ? "MDN ↗" : "Copy ↩") : nil, accent: commandHeld)
         return cell
     }
+
+    func tableViewSelectionDidChange(_ notification: Notification) { updateHints() }
 }
 
 /// "404  Not Found" on one line (code colored by class), description smaller underneath.
@@ -136,23 +181,28 @@ private final class RowView: NSTableCellView {
     static let id = NSUserInterfaceItemIdentifier("RowView")
     private let title = NSTextField(labelWithString: "")
     private let detail = NSTextField(labelWithString: "")
+    private let hint = NSTextField(labelWithString: "")
 
     init() {
         super.init(frame: .zero)
         identifier = Self.id
         detail.font = .systemFont(ofSize: 12)
         detail.textColor = .secondaryLabelColor
-        for f in [title, detail] {
+        hint.font = .systemFont(ofSize: 12, weight: .medium)
+        hint.alignment = .right
+        for f in [title, detail, hint] {
             f.lineBreakMode = .byTruncatingTail
             f.translatesAutoresizingMaskIntoConstraints = false
             addSubview(f)
         }
         NSLayoutConstraint.activate([
             title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            title.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+            title.trailingAnchor.constraint(lessThanOrEqualTo: hint.leadingAnchor, constant: -8),
+            hint.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            hint.centerYAnchor.constraint(equalTo: centerYAnchor),
             title.topAnchor.constraint(equalTo: topAnchor, constant: 6),
             detail.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-            detail.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+            detail.trailingAnchor.constraint(lessThanOrEqualTo: hint.leadingAnchor, constant: -8),
             detail.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2),
         ])
     }
@@ -168,6 +218,11 @@ private final class RowView: NSTableCellView {
         ]))
         title.attributedStringValue = s
         detail.stringValue = e.description
+    }
+
+    func setHint(_ text: String?, accent: Bool) {
+        hint.stringValue = text ?? ""
+        hint.textColor = accent ? .controlAccentColor : .tertiaryLabelColor
     }
 }
 
