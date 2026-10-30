@@ -77,6 +77,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSEvent.removeMonitor(monitor!)
 
         let old = (defaults.integer(forKey: "keyCode"), defaults.integer(forKey: "modifiers"), defaults.string(forKey: "shortcutLabel")!)
+        if let e = recorded, let action = macOSShortcut(keyCode: Int(e.keyCode), flags: e.modifierFlags) {
+            let warn = NSAlert()
+            warn.messageText = "\(label(e)) is used by macOS for “\(action)”"
+            warn.informativeText = "macOS takes it first, so CodeSpot won't open. Choose another shortcut, or turn that one off in "
+                + "System Settings › Keyboard › Keyboard Shortcuts."
+            warn.addButton(withTitle: "Choose Another")
+            warn.addButton(withTitle: "Use Anyway")
+            if warn.runModal() == .alertFirstButtonReturn { registerSaved(); return changeShortcut() }
+        }
         if let e = recorded {
             defaults.set(Int(e.keyCode), forKey: "keyCode")
             defaults.set(Int(carbonModifiers(e.modifierFlags)), forKey: "modifiers")

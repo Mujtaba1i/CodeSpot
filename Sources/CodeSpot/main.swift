@@ -2,6 +2,7 @@ import AppKit
 
 if CommandLine.arguments.contains("--selftest") {
     runSelfTest()
+    hotKeySelfTest()
     exit(0)
 }
 
