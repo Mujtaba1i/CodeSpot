@@ -1,10 +1,10 @@
 name: Build
 
+# Only version tags build and release (git tag v1.1.0 && git push origin v1.1.0).
+# Normal pushes run nothing. "Run workflow" in the Actions tab still builds by hand (no release).
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -14,6 +14,8 @@ jobs:
       contents: write # create the release on tags
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history and tags, for the release notes
 
       - name: Build universal app
         run: UNIVERSAL=1 ./build.sh
@@ -33,4 +35,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" CodeSpot.dmg --title "CodeSpot $GITHUB_REF_NAME" --generate-notes
+        run: |
+          # Release notes = every commit since the previous tag (minus "Release vX" bumps).
+          PREV=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          {
+            if [ -n "$PREV" ]; then echo "## Changes since $PREV"; else echo "## Changes"; fi
+            echo
+            git log --no-merges --invert-grep --grep='^Release v' --pretty='- %s' ${PREV:+"$PREV.."}"$GITHUB_REF_NAME"
+          } > notes.md
+          cat notes.md
+          gh release create "$GITHUB_REF_NAME" CodeSpot.dmg --title "CodeSpot $GITHUB_REF_NAME" --notes-file notes.md
